@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-#from flask import Flask, request, Response, send_file
 import requests
 import os
 import sys
-#import xmltodict, json
 from lxml import etree
 
-
 def EventorRequest(url):
+    """ Eventor request
+    """
     apikey =  os.environ.get('EventorAPIKey')
 
     response = requests.get(
@@ -24,6 +23,8 @@ def EventorRequest(url):
     return root
 
 class MinimalNewbie:
+    """ Basic information for a newbie
+    """
     def __init__(self, eventId, competitorId, given, family, eventStatus):
         self.eventId = eventId
         self.competitorId = competitorId
@@ -43,19 +44,19 @@ def GetEvents(dateStart, dateEnd, organisationIds):
     url = "https://eventor.orienteering.asn.au/api/events?fromDate={0}&toDate={1}&OrganisationIds={2}".format(dateStart, dateEnd, organisationIds)
     root = EventorRequest(url)
 
-
+    # find event ids from all events returns
     xpath = "/EventList/Event/EventId"
     eventids = root.xpath(xpath)
     eventCount = len(eventids)
     print("Found {0} events".format(eventCount))
 
     if (eventCount==0):
-        print("Exiting - No event found for date range {0} to {1}".format(dateStart, dateEnd))
+        print("Exiting - No events found for date range {0} to {1}".format(dateStart, dateEnd))
     else:
         # create a list of event locations
         newbieData = []
 
-        # for each event then add a location based on the eventid
+        # for each event add any newbies found for that event
         for eventid in eventids:
             newbieData = newbieData + GetNewbies(eventid.text)
 
@@ -64,7 +65,6 @@ def GetEvents(dateStart, dateEnd, organisationIds):
         import csv
         with open("newbies.csv", "w", newline='') as f:
             out = csv.writer(f)
-            #out.writerows(map(lambda x: [x], **newbieData))
             out.writerows(newbieData)
         print("Complete!")
 
@@ -76,6 +76,7 @@ def GetNewbies(eventId):
     url = "https://eventor.orienteering.asn.au/api/results/event?eventid={0}".format(eventId)
     root = EventorRequest(url)
 
+    # find newbies
     xpath = "/ResultList/ClassResult/PersonResult[not(Organisation)]"
     newbieResults = root.xpath(xpath)
     newbieCount = len(newbieResults)
@@ -84,14 +85,12 @@ def GetNewbies(eventId):
     # create a list of event locations
     newbies = []
 
-
-
     # grab the id, given name, family name and the result
     for personResult in newbieResults:
         competitorId = "Unknown"
         given = ""
         family = ""
-        status = "Not found"
+        status = "No event competitor status found"
 
         for resultChild in personResult:
             if (resultChild.tag=='Person'):
@@ -116,11 +115,6 @@ def GetNewbies(eventId):
         newbies.append(newbie) 
     return newbies
     
-
-
-            
-
-
 if __name__ == '__main__':
     #app.run(debug=True,host='0.0.0.0',port=80)
     sys.path.insert(0, os.path.abspath('..'))
@@ -134,5 +128,3 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     GetEvents(args.startDate, args.endDate, args.organisationIds)
-
-
