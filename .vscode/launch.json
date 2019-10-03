@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations" : [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "program": "${file}",
+            "args":["2019-9-1", "2019-9-30", "5"]
+        }
+    ]
+}
