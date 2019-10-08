@@ -9,6 +9,10 @@ def EventorRequest(url):
     """ Eventor request
     """
     apikey =  os.environ.get('EventorAPIKey')
+    if (apikey==None):
+        #print("The eventor key will be read from the local directory file name eventorapikey.txt")
+        with open("eventorapikey.txt") as f:
+            apikey = f.read()
 
     response = requests.get(
         url=url,
@@ -17,6 +21,9 @@ def EventorRequest(url):
             'ApiKey': apikey
         },
     )
+    
+    if (response.status_code!=200):
+        print("There was an error in the eventor request. Response was {0}".format(response.text) )
 
     # load the XML into lxml tree
     root = etree.fromstring(response.content)
@@ -25,8 +32,10 @@ def EventorRequest(url):
 class MinimalNewbie:
     """ Basic information for a newbie
     """
-    def __init__(self, eventId, competitorId, given, family, eventStatus):
+    def __init__(self, eventId, eventName, eventStart, competitorId, given, family, eventStatus):
         self.eventId = eventId
+        self.eventName = eventName
+        self.eventStart = eventStart
         self.competitorId = competitorId
         self.given = given
         self.family = family
@@ -44,7 +53,7 @@ def GetEvents(dateStart, dateEnd, organisationIds):
     url = "https://eventor.orienteering.asn.au/api/events?fromDate={0}&toDate={1}&OrganisationIds={2}".format(dateStart, dateEnd, organisationIds)
     root = EventorRequest(url)
 
-    # find event ids from all events returns
+    # find event ids (and names) from all events returns
     xpath = "/EventList/Event/EventId"
     eventids = root.xpath(xpath)
     eventCount = len(eventids)
@@ -63,23 +72,34 @@ def GetEvents(dateStart, dateEnd, organisationIds):
         # convert to CSV
         print("Writing to CSV file")
         import csv
-        with open("newbies.csv", "w", newline='') as f:
+        with open("newbies-{0}-{1}.csv".format(dateStart, dateEnd), "w", newline='') as f:
             out = csv.writer(f)
             out.writerows(newbieData)
         print("Complete!")
 
 
 def GetNewbies(eventId):
-    """ Get a list of newbies (those with no organisation) based on a search date range
+    """ Get a list of newbies (those with no organisation) for an event based on a search date range
     """
     print("Searching eventor results for event {0}".format(eventId))
     url = "https://eventor.orienteering.asn.au/api/results/event?eventid={0}".format(eventId)
     root = EventorRequest(url)
 
+    # get event name
+    xpath = "/ResultList/Event/Name"
+    eventNameResults = root.xpath(xpath)
+    eventName = eventNameResults[0].text
+
+    # get event date
+    xpath = "/ResultList/Event/StartDate"
+    eventStartResults = root.xpath(xpath)
+    eventStart = eventStartResults[0][0].text
+
     # find newbies
     xpath = "/ResultList/ClassResult/PersonResult[not(Organisation)]"
     newbieResults = root.xpath(xpath)
     newbieCount = len(newbieResults)
+    print("{0} - {1} ".format(eventStart, eventName))
     print("Found {0} newbie results".format(newbieCount))
 
     # create a list of event locations
@@ -111,7 +131,7 @@ def GetNewbies(eventId):
                         status =resultElement.attrib["value"]
     
         # create a newbie
-        newbie = MinimalNewbie(eventId, competitorId, given, family, status)
+        newbie = MinimalNewbie(eventId, eventName, eventStart, competitorId, given, family, status)
         newbies.append(newbie) 
     return newbies
     
